@@ -73,6 +73,11 @@ contract PayrollCore is AccessControl, Pausable, ReentrancyGuard {
         paymentProcessor = new PaymentProcessor(address(this));
         auditLogger = new AuditLogger(address(this));
         
+        // Set component references
+        paymentProcessor.setEmployeeManager(address(employeeManager));
+        paymentProcessor.setTokenManager(payable (address(tokenManager)));
+        paymentProcessor.setAuditLogger(address(auditLogger));
+        
         emit PayrollSystemInitialized(_companyName, block.timestamp);
     }
     
@@ -139,7 +144,7 @@ contract PayrollCore is AccessControl, Pausable, ReentrancyGuard {
         );
     }
     
-    function grantEmployeeRole(address _account) external onlyAdminOrHR {
+    function grantEmployeeRole(address _account) public onlyAdminOrHR {
         grantRole(EMPLOYEE_ROLE, _account);
         auditLogger.logAction(
             msg.sender,
@@ -152,12 +157,14 @@ contract PayrollCore is AccessControl, Pausable, ReentrancyGuard {
     function upgradeEmployeeManager(address _newManager) external onlyRole(ADMIN_ROLE) {
         address oldManager = address(employeeManager);
         employeeManager = EmployeeManager(_newManager);
+        paymentProcessor.setEmployeeManager(_newManager);
         emit ComponentUpgraded("EmployeeManager", oldManager, _newManager);
     }
     
-    function upgradeTokenManager(address _newManager) external onlyRole(ADMIN_ROLE) {
+    function upgradeTokenManager(address payable _newManager) external onlyRole(ADMIN_ROLE) {
         address oldManager = address(tokenManager);
         tokenManager = TokenManager(_newManager);
+        paymentProcessor.setTokenManager(_newManager);
         emit ComponentUpgraded("TokenManager", oldManager, _newManager);
     }
     
@@ -176,6 +183,12 @@ contract PayrollCore is AccessControl, Pausable, ReentrancyGuard {
     ) external onlyAdminOrHR whenNotPaused {
         employeeManager.addEmployee(_wallet, _baseAmount, _schedule, _preferredToken);
         grantEmployeeRole(_wallet);
+        
+        auditLogger.logAction(
+            msg.sender,
+            "EMPLOYEE_ADDED",
+            abi.encode(_wallet, _baseAmount, _schedule, _preferredToken, block.timestamp)
+        );
     }
     
     function processPayroll() external onlyAdminOrFinance whenNotPaused nonReentrant {

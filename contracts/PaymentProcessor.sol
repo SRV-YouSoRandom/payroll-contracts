@@ -100,7 +100,7 @@ contract PaymentProcessor is AccessControl, ReentrancyGuard {
         employeeManager = EmployeeManager(_employeeManager);
     }
     
-    function setTokenManager(address _tokenManager) external onlyPayrollCore {
+    function setTokenManager(address payable _tokenManager) external onlyPayrollCore {
         tokenManager = TokenManager(_tokenManager);
     }
     

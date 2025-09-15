@@ -3,6 +3,7 @@ pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
@@ -184,20 +185,21 @@ contract TokenManager is AccessControl, ReentrancyGuard {
     }
     
     function _addTokenWithDetails(address _token) internal {
-        IERC20 token = IERC20(_token);
+        string memory symbol = "TOKEN";
+        uint8 decimals = 18;
         
-        // Try to get token details (some tokens might not implement these)
-        string memory symbol;
-        uint8 decimals;
-        
-        try token.decimals() returns (uint8 _decimals) {
+        // Try to get token metadata using IERC20Metadata interface
+        try IERC20Metadata(_token).decimals() returns (uint8 _decimals) {
             decimals = _decimals;
         } catch {
-            decimals = 18; // Default to 18 decimals
+            // Use default decimals if not available
         }
         
-        // For symbol, we'll use a simple approach since it's optional
-        symbol = "TOKEN"; // Default symbol
+        try IERC20Metadata(_token).symbol() returns (string memory _symbol) {
+            symbol = _symbol;
+        } catch {
+            // Use default symbol if not available
+        }
         
         _addToken(_token, symbol, decimals);
     }
@@ -208,7 +210,7 @@ contract TokenManager is AccessControl, ReentrancyGuard {
         shortfall = sufficient ? 0 : _requiredAmount - currentBalance;
     }
     
-    function estimateGasForPayment(address _token, address _to, uint256 _amount) external view returns (uint256) {
+    function estimateGasForPayment(address _token, address /* _to */, uint256 /* _amount */) external pure returns (uint256) {
         if (_token == address(0)) {
             return 21000; // Standard ETH transfer gas
         } else {
